@@ -28,7 +28,6 @@ from typing import TYPE_CHECKING, Any, Callable, Iterable, overload
 
 from ._util import put_buffers, remove_buffers
 from ._version import __version__
-from .widget import DEFAULT_ESM
 
 if TYPE_CHECKING:  # pragma: no cover
     import traitlets
@@ -66,6 +65,18 @@ _ANYWIDGET_STATE = {
     "_view_count": None,
 }
 
+DEFAULT_ESM = """
+export function render(view) {
+  console.log("Dev note: No _esm defined for this widget:", view);
+  let url = "https://anywidget.dev/en/getting-started/";
+  view.el.innerHTML = `<p>
+    <strong>Dev note</strong>:
+    <a href='${url}' target='blank'>Implement an <code>_esm</code> attribute</a>
+    on AnyWidget subclass <code>${view.model.get('_anywidget_id')}</code>
+    to customize this widget.
+  </p>`;
+}
+"""
 
 def open_comm(
     target_name: str = _TARGET_NAME, version: str = _PROTOCOL_VERSION, **kwargs

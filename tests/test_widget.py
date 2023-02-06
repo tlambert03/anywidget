@@ -71,9 +71,7 @@ def test_creates_fully_qualified_identifier():
         _module = t.Unicode(ESM).tag(sync=True)
 
     w = Widget()
-
-    assert w.has_trait("_anywidget_id")
-    assert w._anywidget_id == "test_widget.Widget"
+    assert w._repr_mimebundle_._extra_state["_anywidget_id"] == "test_widget.Widget"
 
 
 def test_infer_traitlets():

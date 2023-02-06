@@ -1,23 +1,9 @@
 import sys
 from functools import lru_cache
 
-import ipywidgets
 import traitlets.traitlets as t
 
-from ._version import __version__
-
-DEFAULT_ESM = """
-export function render(view) {
-  console.log("Dev note: No _esm defined for this widget:", view);
-  let url = "https://anywidget.dev/en/getting-started/";
-  view.el.innerHTML = `<p>
-    <strong>Dev note</strong>:
-    <a href='${url}' target='blank'>Implement an <code>_esm</code> attribute</a>
-    on AnyWidget subclass <code>${view.model.get('_anywidget_id')}</code>
-    to customize this widget.
-  </p>`;
-}
-"""
+from ._descriptor import MimeBundleDescriptor, DEFAULT_ESM
 
 
 @lru_cache(maxsize=None)
@@ -27,14 +13,8 @@ def _enable_custom_widget_manager():
     sys.modules["google.colab.output"].enable_custom_widget_manager()  # type: ignore
 
 
-class AnyWidget(ipywidgets.DOMWidget):
-    _model_name = t.Unicode("AnyModel").tag(sync=True)
-    _model_module = t.Unicode("anywidget").tag(sync=True)
-    _model_module_version = t.Unicode(__version__).tag(sync=True)
-
-    _view_name = t.Unicode("AnyView").tag(sync=True)
-    _view_module = t.Unicode("anywidget").tag(sync=True)
-    _view_module_version = t.Unicode(__version__).tag(sync=True)
+class AnyWidget(t.HasTraits):
+    _repr_mimebundle_ = MimeBundleDescriptor()
 
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
@@ -49,13 +29,6 @@ class AnyWidget(ipywidgets.DOMWidget):
         # show default _esm if not defined
         if all(not hasattr(self, i) for i in ("_esm", "_module")):
             anywidget_traits["_esm"] = t.Unicode(DEFAULT_ESM).tag(sync=True)
-
-        # TODO: a better way to uniquely identify this subclasses?
-        # We use the fully-qualified name to get an id which we
-        # can use to update CSS if necessary.
-        anywidget_traits["_anywidget_id"] = t.Unicode(
-            f"{self.__class__.__module__}.{self.__class__.__name__}"
-        ).tag(sync=True)
 
         self.add_traits(**anywidget_traits)
 
