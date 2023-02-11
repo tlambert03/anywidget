@@ -35,7 +35,7 @@ if TYPE_CHECKING:  # pragma: no cover
     import pydantic
     import psygnal
 
-    from ipykernel.comm import Comm
+    from ._comm import Comm
     from typing_extensions import TypeGuard
 
     from ._protocols import CommMessage
@@ -70,7 +70,7 @@ _ANYWIDGET_STATE = {
 def open_comm(
     target_name: str = _TARGET_NAME, version: str = _PROTOCOL_VERSION, **kwargs
 ) -> Comm:
-    from ipykernel.comm import Comm
+    from ._comm import Comm
 
     return Comm(
         target_name=target_name,
