@@ -4,7 +4,6 @@ from typing import TYPE_CHECKING, Any, cast
 import comm.base_comm
 from ipykernel.jsonutil import json_clean
 from ipykernel.kernelbase import Kernel
-import json
 
 
 if TYPE_CHECKING:
