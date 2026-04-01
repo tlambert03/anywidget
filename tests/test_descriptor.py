@@ -16,6 +16,8 @@ from anywidget._descriptor import (
 from anywidget._file_contents import FileContents
 from anywidget._protocols import AnywidgetProtocol
 from anywidget._util import _WIDGET_MIME_TYPE
+from anywidget.experimental import command
+from anywidget.experimental import dataclass as aw_dataclass
 from ipykernel.comm import Comm
 from watchfiles import Change
 
@@ -392,6 +394,96 @@ def test_explicit_file_contents(tmp_path: pathlib.Path) -> None:
 
     foo = Foo()
     assert foo._repr_mimebundle_._extra_state["bar"] == path.read_text()
+
+
+def test_anywidget_commands_via_descriptor(mock_comm: MagicMock) -> None:
+    """Test that @command methods work with MimeBundleDescriptor."""
+
+    class Foo:
+        _repr_mimebundle_ = MimeBundleDescriptor(autodetect_observer=False)
+        value: int = 1
+
+        def _get_anywidget_state(self, include: Union[Set[str], None]) -> dict:  # noqa: ARG002
+            return {"value": self.value}
+
+        @command
+        def _echo(
+            self,
+            msg: object,
+            buffers: list[bytes],
+        ) -> tuple[object, list[bytes]]:
+            return msg, buffers
+
+    foo = Foo()
+    foo._repr_mimebundle_  # create the comm
+    mock_comm.send.reset_mock()
+
+    # simulate an anywidget-command message from JS
+    mock_comm.handle_msg(
+        {
+            "content": {
+                "data": {
+                    "kind": "anywidget-command",
+                    "name": "_echo",
+                    "id": "test-id-123",
+                    "msg": {"hello": "world"},
+                },
+            },
+            "buffers": [],
+        },
+    )
+
+    mock_comm.send.assert_called_with(
+        data={
+            "id": "test-id-123",
+            "kind": "anywidget-command-response",
+            "response": {"hello": "world"},
+        },
+        buffers=[],
+    )
+
+
+def test_anywidget_commands_via_widget_decorator(mock_comm: MagicMock) -> None:
+    """Test that @command methods work with the @widget decorator."""
+
+    @aw_dataclass(esm="export default { render() {} }")
+    class Foo:
+        value: int = 1
+
+        @command
+        def _echo(
+            self,
+            msg: object,
+            buffers: list[bytes],
+        ) -> tuple[object, list[bytes]]:
+            return msg, buffers
+
+    foo = Foo()
+    foo._repr_mimebundle_  # create the comm
+    mock_comm.send.reset_mock()
+
+    mock_comm.handle_msg(
+        {
+            "content": {
+                "data": {
+                    "kind": "anywidget-command",
+                    "name": "_echo",
+                    "id": "test-id-456",
+                    "msg": [1, 2, 3],
+                },
+            },
+            "buffers": [],
+        },
+    )
+
+    mock_comm.send.assert_called_with(
+        data={
+            "id": "test-id-456",
+            "kind": "anywidget-command-response",
+            "response": [1, 2, 3],
+        },
+        buffers=[],
+    )
 
 
 def test_no_view() -> None:

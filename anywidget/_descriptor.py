@@ -327,6 +327,12 @@ class ReprMimeBundle:
         self._get_state = determine_state_getter(obj)
         self._set_state = determine_state_setter(obj)
 
+        # collect anywidget commands if not already done
+        if not hasattr(type(obj), "_anywidget_commands"):
+            from .experimental import _collect_anywidget_commands
+
+            _collect_anywidget_commands(type(obj))
+
         for key, value in self._extra_state.items():
             if isinstance(value, (VirtualFileContents, FileContents)):
                 self._extra_state[key] = str(value)
@@ -397,15 +403,18 @@ class ReprMimeBundle:
             return  # pragma: no cover  ... the python object has been deleted
 
         data = msg["content"]["data"]
-        if data["method"] == "update":
+        if data.get("method") == "update":
             if "state" in data:
                 state = data["state"]
                 if "buffer_paths" in data:
                     put_buffers(state, data["buffer_paths"], msg["buffers"])
                 self._set_state(obj, state)
 
-        elif data["method"] == "request_state":
+        elif data.get("method") == "request_state":
             self.send_state()
+
+        elif data.get("kind") == "anywidget-command":
+            self._handle_anywidget_command(obj, data, msg.get("buffers", []))
 
         # elif method == "custom":  # noqa: ERA001
         # Handle a custom msg from the front-end.
@@ -413,7 +422,7 @@ class ReprMimeBundle:
         #     self._handle_custom_msg(data["content"], msg["buffers"])  # noqa: ERA001
         else:  # pragma: no cover
             err_msg = (
-                f"Unrecognized method: {data['method']}.  Please report this at "
+                f"Unrecognized method/kind: {data}.  Please report this at "
                 "https://github.com/manzt/anywidget/issues"
             )
             raise ValueError(err_msg)
@@ -422,6 +431,27 @@ class ReprMimeBundle:
     #     # TODO(manzt): handle custom callbacks  # noqa: TD003
     #     # https://github.com/jupyter-widgets/ipywidgets/blob/6547f840edc1884c75e60386ec7fb873ba13f21c/python/ipywidgets/ipywidgets/widgets/widget.py#L662
     #     ...
+
+    def _handle_anywidget_command(
+        self,
+        obj: object,
+        data: dict,
+        buffers: list,
+    ) -> None:
+        """Dispatch an anywidget-command message to the appropriate command method."""
+        cmds: dict = getattr(type(obj), "_anywidget_commands", {})
+        cmd = cmds.get(data["name"])
+        if cmd is None:
+            return  # pragma: no cover
+        response, resp_buffers = cmd(obj, data["msg"], buffers)
+        self._comm.send(
+            data={
+                "id": data["id"],
+                "kind": "anywidget-command-response",
+                "response": response,
+            },
+            buffers=resp_buffers,
+        )
 
     def __call__(self, **kwargs: Sequence[str]) -> tuple[dict, dict] | None:  # noqa: ARG002
         """Called when _repr_mimebundle_ is called on the python object."""

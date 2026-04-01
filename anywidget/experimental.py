@@ -46,6 +46,7 @@ def widget(
         kwargs["_css"] = css
 
     def _decorator(cls: T) -> T:
+        _collect_anywidget_commands(cls)  # type: ignore[arg-type]
         setattr(cls, "_repr_mimebundle_", MimeBundleDescriptor(**kwargs))  # noqa: B010
         return cls
 
